@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { TransactionContext } from '../../context/TransactionContext';
-import { savePayslipAfterPayment } from '../../services/payslipService'; // Import the service
 
 const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData }) => {
   const initialDepositAmount = userData.zakatAmount > 0 ? userData.zakatAmount : 0;
@@ -18,7 +17,10 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
     handleChange,
     getZakatTransactions
   } = useContext(TransactionContext);
-  const [saveStatus, setSaveStatus] = useState(''); // Add a state for save status
+  
+  // New state for demo mode
+  const [isMockWalletConnected, setIsMockWalletConnected] = useState(false);
+  const [demoMessage, setDemoMessage] = useState('');
 
   useEffect(() => {
      const amount = Number(depositAmount) || 0;
@@ -38,11 +40,11 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
    }, [userData.zakatAmount]);
 
    useEffect(() => {
-    handleChange({ target: { value: import.meta.env.VITE_RECEIVER_ADDRESS }}, 'addressTo');
+    handleChange({ target: { value: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F" }}, 'addressTo');
     handleChange({ target: { value: ethAmount.toString() }}, 'amount');
     handleChange({ target: { value: 'ZAKAT' }}, 'keyword');
     handleChange({ target: { value: `Zakat payment for categories: ${userData.selectedCategories.map(c => c.name).join(', ')}` }}, 'message');
-   }, []);
+   }, [ethAmount, userData.selectedCategories]);
 
   const handleDepositChange = (e) => {
     const value = e.target.value;
@@ -54,6 +56,19 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
     
     // Update local state for the RM value
     setDepositAmount(value === '' ? '' : Number(value));
+  };
+
+  const connectMockWallet = async () => {
+    setIsProcessing(true);
+    setDemoMessage('Connecting to demo wallet...');
+    
+    // Simulate connection delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    await connectWallet();
+    setIsMockWalletConnected(true);
+    setDemoMessage('Demo wallet connected!');
+    setIsProcessing(false);
   };
 
   const processPayment = async () => {
@@ -68,58 +83,60 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
       setError('');
       setIsProcessing(true);
 
-      if (!currentAccount) {
-        await connectWallet();
+      if (!currentAccount && !isMockWalletConnected) {
+        await connectMockWallet();
         return;
       }
 
-      // CRITICAL FIX: For RM 1, we should send exactly 1.5 ETH
-      // We need to use a plain string with the correct number to avoid math errors
+      // DEMO MODE: For RM 1, we should send exactly 1.5 ETH
       const ethValue = (finalDepositAmount * rmToEthRate).toFixed(6);
       console.log('RM Amount:', finalDepositAmount);
       console.log('Conversion rate:', rmToEthRate);
       console.log('ETH Amount (calculated):', ethValue);
 
       // Set form data for transaction
-      handleChange({ target: { value: import.meta.env.VITE_RECEIVER_ADDRESS }}, 'addressTo');
+      handleChange({ target: { value: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F" }}, 'addressTo');
       handleChange({ target: { value: ethValue }}, 'amount');
       handleChange({ target: { value: 'ZAKAT' }}, 'keyword');
       handleChange({ target: { value: `Zakat payment for categories: ${userData.selectedCategories.map(c => c.name).join(', ')}` }}, 'message');
 
+      // Show processing message
+      setDemoMessage('Processing payment...');
+      
       // Execute transaction
       await sendTransaction();
       
-      // Wait for transaction to be mined
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create a mock transaction hash
+      const mockTransactionHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
       
+      setDemoMessage('Payment successful! Recording transaction details...');
+      
+      // Create transaction details object
       const transactionDetails = {
-        transactionId: '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+        transactionId: mockTransactionHash,
         amount: finalDepositAmount,
         ethAmount: ethValue,
         rmToEthRate: rmToEthRate,
         timestamp: new Date().toISOString(),
         status: 'Confirmed',
         categories: userData.selectedCategories.map(c => c.name).join(', '),
-        walletAddress: currentAccount
+        walletAddress: currentAccount || "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
       };
 
+      // Update user data with transaction details
       updateUserData({ transactionDetails });
-      try {
-        setSaveStatus('Saving payment record...');
-        await savePayslipAfterPayment(userData);
-        setSaveStatus('Payment record saved successfully!');
-      } catch (firestoreError) {
-        console.error("Error saving payslip data to Firestore:", firestoreError);
-        setSaveStatus('Warning: Payment completed but record could not be saved.');
-      }
       
-      // Force refresh of Zakat transactions
+      setDemoMessage('Transaction completed successfully!');
+      
+      // Force refresh of Zakat transactions in the mock context
       await getZakatTransactions();
       
+      // Move to next step
       nextStep();
     } catch (error) {
       console.error('Payment error:', error);
       setError('Transaction failed. Please try again.');
+      setDemoMessage('');
     } finally {
       setIsProcessing(false);
     }
@@ -128,6 +145,14 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-700">Step 5: Payment Process</h2>
+      
+      {/* Demo mode indicator */}
+      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+        <p className="text-yellow-700 text-sm font-medium">
+          <span className="inline-block bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs mr-2">DEMO MODE</span>
+          This is a demonstration version showing how the payment process would work.
+        </p>
+      </div>
 
       <div className="p-6 border border-gray-200 rounded-lg bg-white space-y-5">
         <h3 className="text-lg font-medium text-gray-800">Confirm Donation Amount</h3>
@@ -169,17 +194,30 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
          <div>
              <h4 className="text-sm font-medium text-gray-700 mb-2">Payment via Blockchain</h4>
              <div className="flex items-center p-3 border border-green-200 bg-green-50 rounded">
-                {/* Placeholder for actual wallet connection/payment button */}
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-700 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                 </svg>
-                 <p className="text-sm text-green-800">Payment will be processed securely on the Ethereum blockchain.</p>
-                {/* In a real app: Add Connect Wallet button here */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-700 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-sm text-green-800">
+                  {currentAccount || isMockWalletConnected ? 
+                    `Connected: ${currentAccount ? `${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}` : "Demo Wallet"}` : 
+                    "Payment will be processed securely (Demo Mode)"}
+                </p>
              </div>
          </div>
-
       </div>
 
+      {/* Demo message */}
+      {demoMessage && (
+        <div className="flex items-center p-3 bg-blue-50 border border-blue-100 rounded">
+          {isProcessing && (
+            <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          <p className="text-sm text-blue-700">{demoMessage}</p>
+        </div>
+      )}
 
       {/* Navigation Buttons */}
       <div className="flex justify-between pt-4">
@@ -201,25 +239,16 @@ const BlockchainPaymentStep = ({ nextStep, prevStep, userData, updateUserData })
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Processing Payment...
+              Processing...
             </>
           ) : (
-            !currentAccount ? 'Connect Wallet' : 'Complete Payment'
+            !currentAccount && !isMockWalletConnected ? 'Connect Demo Wallet' : 'Complete Payment'
           )}
         </button>
       </div>
        <p className="text-xs text-gray-500 text-center mt-4">
-        {currentAccount ? 
-          `Connected: ${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}` : 
-          'Please connect your MetaMask wallet to make a payment'}
-      </p>
-      {saveStatus && (
-        <div className={`text-sm text-center mt-2 ${
-          saveStatus.includes('Warning') ? 'text-yellow-600' : 'text-green-600'
-        }`}>
-          {saveStatus}
-        </div>
-      )}
+        This is a demonstration of the payment process for presentation purposes.
+       </p>
     </div>
   );
 };

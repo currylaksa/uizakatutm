@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ethers } from 'ethers';
 import { TransactionContext } from "../context/TransactionContext";
 
 const ProfilePage = () => {
@@ -10,7 +9,7 @@ const ProfilePage = () => {
   const [profileView, setProfileView] = useState('donor'); // 'donor' or 'applicant'
   
   const [walletAddress, setWalletAddress] = useState('');
-  const [walletBalance, setWalletBalance] = useState(null);
+  const [walletBalance, setWalletBalance] = useState('0.5431');
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [networkError, setNetworkError] = useState(false);
@@ -20,6 +19,9 @@ const ProfilePage = () => {
   const [showLocalSuggestions, setShowLocalSuggestions] = useState(false);
   const [showInRM, setShowInRM] = useState(false); // New state for currency toggle
   const [ethToMYRRate] = useState(450); // Updated ETH to MYR conversion rate
+
+  // Get transaction context for the mock implementation
+  const { currentAccount, connectWallet, zakatTransactions } = useContext(TransactionContext);
   
   // Mock donor payment report data
   const [donorPaymentReport] = useState({
@@ -81,168 +83,60 @@ const ProfilePage = () => {
     { id: 4, name: 'Muallaf (Converts)', percentage: 10, color: 'bg-yellow-500' },
     { id: 5, name: 'Other Categories', percentage: 20, color: 'bg-red-500' }
   ];
-  
-  // Remove unused state variable
-  // const [recentDonations, setRecentDonations] = useState([...]);
 
   useEffect(() => {
+    // Demo mode indicator
+    console.log('[DEMO MODE] ProfilePage initialized');
     checkIfWalletIsConnected();
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', handleChainChanged);
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-    }
-    
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-      }
-    };
-  // Add the missing dependency for the ESLint react-hooks/exhaustive-deps rule
   }, []);
 
-  const handleChainChanged = () => {
-    // Reload the page when chain changes
-    window.location.reload();
-  };
-
-  const handleAccountsChanged = (accounts) => {
-    if (accounts.length > 0) {
-      setWalletAddress(accounts[0]);
-      getWalletBalance(accounts[0]);
-    } else {
-      setWalletAddress('');
-      setWalletBalance(null);
-      setIsWalletConnected(false);
+  // Update wallet state when currentAccount changes
+  useEffect(() => {
+    if (currentAccount) {
+      setWalletAddress(currentAccount);
+      setIsWalletConnected(true);
+      // Use mock balance for demo
+      setWalletBalance('0.5431');
     }
-  };
+  }, [currentAccount]);
 
   const checkIfWalletIsConnected = async () => {
     try {
-      if (!window.ethereum) {
-        console.log("Please install MetaMask");
-        return;
-      }
-
       setIsLoading(true);
-      
-      // Check if we're on Swan Saturn Testnet network
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      const swanSaturnChainId = '0x7E8'; // Chain ID for Swan Saturn (2024 in hex)
-      
-      if (chainId !== swanSaturnChainId) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: swanSaturnChainId }],
-          });
-        } catch (switchError) {
-          // This error code indicates that the chain has not been added to MetaMask
-          if (switchError.code === 4902) {
-            try {
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: swanSaturnChainId,
-                  chainName: 'Swan Saturn Testnet',
-                  nativeCurrency: {
-                    name: 'Swan Ethereum',
-                    symbol: 'sETH',
-                    decimals: 18
-                  },
-                  rpcUrls: ['https://saturn-rpc.swanchain.io'],
-                  blockExplorerUrls: ['https://saturn-explorer.swanchain.io']
-                }]
-              });
-            } catch (addError) {
-              console.error('Error adding Swan Saturn network:', addError);
-              setNetworkError(true);
-            }
-          }
-          console.error('Error switching to Swan Saturn network:', switchError);
-          setNetworkError(true);
-        }
-      }
-
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-
-      if (accounts.length) {
-        setWalletAddress(accounts[0]);
-        setIsWalletConnected(true);
-        await getWalletBalance(accounts[0]);
-      } else {
-        console.log('No authorized account found');
-      }
+      // In demo mode, we'll start with wallet disconnected for better demonstration
+      setWalletAddress('');
+      setIsWalletConnected(false);
       setIsLoading(false);
     } catch (error) {
-      console.error(error);
+      console.error('[DEMO] Error checking wallet connection:', error);
       setIsLoading(false);
     }
   };
 
-  const connectWallet = async () => {
+  const handleConnectWallet = async () => {
     try {
-      if (!window.ethereum) {
-        alert("Please install MetaMask");
-        return;
-      }
-
       setIsLoading(true);
       setNetworkError(false);
-
-      // Request account access
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       
-      // Check and switch to Swan Saturn network
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      const swanSaturnChainId = '0x7E8'; // Chain ID for Swan Saturn (2024 in hex)
+      await connectWallet();
       
-      if (chainId !== swanSaturnChainId) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: swanSaturnChainId }],
-          });
-        } catch (switchError) {
-          setNetworkError(true);
-          setIsLoading(false);
-          return;
-        }
-      }
-      
-      setWalletAddress(accounts[0]);
-      setIsWalletConnected(true);
-      await getWalletBalance(accounts[0]);
       setIsLoading(false);
     } catch (error) {
-      console.error(error);
+      console.error('[DEMO] Error connecting wallet:', error);
       setIsLoading(false);
     }
   };
 
-  const getWalletBalance = async (address) => {
+  const getWalletBalance = async () => {
     try {
-      if (!window.ethereum) return;
-      
-      setIsBalanceLoading(true); // Set loading state
-      
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      
-      if (network.chainId !== BigInt(2024)) {
-        setWalletBalance("Wrong Network");
-        setNetworkError(true);
-        setIsBalanceLoading(false); 
-        return;
-      }
-      
-      const balance = await provider.getBalance(address);
-      const formattedBalance = ethers.formatEther(balance);
-      setWalletBalance(parseFloat(formattedBalance).toFixed(4));
+      setIsBalanceLoading(true);
+      // In demo mode, we'll just update the mock balance
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate loading
+      setWalletBalance('0.5431');
       setNetworkError(false);
       setIsBalanceLoading(false);
     } catch (error) {
-      console.error("Error fetching balance:", error);
+      console.error("[DEMO] Error fetching balance:", error);
       setWalletBalance("Error");
       setIsBalanceLoading(false); 
     }
@@ -251,11 +145,6 @@ const ProfilePage = () => {
   const formatAddress = (address) => {
     if (!address) return '';
     return address.slice(0, 6) + '...' + address.slice(-4);
-  };
-  
-  const formatTxHash = (hash) => {
-    if (!hash) return '';
-    return hash.slice(0, 6) + '...' + hash.slice(-4);
   };
   
   const toggleLocalSuggestions = () => {
@@ -286,11 +175,19 @@ const ProfilePage = () => {
   // Helper function to download payment report as PDF
   const downloadPaymentReport = () => {
     // In a real implementation, this would generate a PDF file
-    alert('Downloading Zakat Payment Report as PDF...');
+    alert('Downloading Zakat Payment Report as PDF... (Demo Mode)');
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Demo Mode Banner */}
+      <div className="bg-yellow-50 border-b border-yellow-200 py-2 px-4 text-center">
+        <p className="text-yellow-700 text-sm">
+          <span className="inline-block bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded text-xs mr-2">DEMO MODE</span>
+          This is a demonstration version showing a frontend-only implementation.
+        </p>
+      </div>
+      
       {/* Page Title and Description */}
       <div className="text-center py-8 max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-green-600 mb-2">ZakatGo Profile</h1>
@@ -345,7 +242,7 @@ const ProfilePage = () => {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <span className="text-sm font-medium">Swan sETH</span>
+                    <span className="text-sm font-medium">Demo ETH</span>
                   </div>
                   {networkError && (
                     <span className="text-xs bg-red-500 bg-opacity-20 px-2 py-0.5 rounded-full">
@@ -357,7 +254,7 @@ const ProfilePage = () => {
                 <div className="flex items-center space-x-2">
                   {isWalletConnected ? (
                     <button 
-                      onClick={() => getWalletBalance(walletAddress)}
+                      onClick={() => getWalletBalance()}
                       className="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 transition-all rounded-full py-1 px-2 flex items-center"
                     >
                       <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -367,11 +264,11 @@ const ProfilePage = () => {
                     </button>
                   ) : (
                     <button 
-                      onClick={connectWallet}
+                      onClick={handleConnectWallet}
                       disabled={isLoading}
                       className="text-xs bg-white text-green-600 font-medium py-1 px-3 rounded-full hover:bg-opacity-90 transition-all disabled:opacity-70"
                     >
-                      {isLoading ? "Connecting..." : "Connect Wallet"}
+                      {isLoading ? "Connecting..." : "Connect Demo Wallet"}
                     </button>
                   )}
                 </div>
@@ -400,16 +297,7 @@ const ProfilePage = () => {
                         </div>
                         <div className="flex items-center text-xs opacity-80 mt-0.5">
                           <span className="font-mono">{formatAddress(walletAddress)}</span>
-                          <a 
-                            href={`https://saturn-explorer.swanchain.io/address/${walletAddress}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="ml-1 opacity-80 hover:opacity-100"
-                          >
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
+                          <span className="ml-2 text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">Demo Wallet</span>
                         </div>
                       </div>
                     </div>
@@ -879,7 +767,7 @@ const ProfilePage = () => {
               </div>
             </>
         ) : (
-          // APPLICANT VIEW
+          // APPLICANT VIEW 
           <>
             {/* Assistance Summary Card */}
             <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-xl p-6 mb-6 shadow-lg text-white mt-4">
@@ -1185,208 +1073,108 @@ const ProfilePage = () => {
 };
 
 const RecentZakatTransactions = () => {
-  const { zakatTransactions, getZakatTransactions, isLoading } = useContext(TransactionContext);
-  const [walletAddress, setWalletAddress] = useState('');
+  const { currentAccount, zakatTransactions, isLoading } = useContext(TransactionContext);
   const [showInRM, setShowInRM] = useState(true);
-  const [debugInfo, setDebugInfo] = useState(null);
-  const ethToMYRRate = 450; // Updated ETH to MYR conversion rate
+  const ethToMYRRate = 450; // ETH to MYR conversion rate
   
   useEffect(() => {
-      // Get current wallet address when component mounts
-      const getCurrentWalletAddress = async () => {
-          if (window.ethereum) {
-              try {
-                  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                  if (accounts.length > 0) {
-                      const userAddress = accounts[0].toLowerCase();
-                      setWalletAddress(userAddress);
-                      console.log("Wallet address set:", userAddress);
-                  }
-              } catch (error) {
-                  console.error("Error getting wallet address:", error);
-              }
-          }
-      };
-      
-      getCurrentWalletAddress();
+    console.log('[DEMO] RecentZakatTransactions component mounted');
   }, []);
-  
-  useEffect(() => {
-      const fetchZakatTransactions = async () => {
-          try {
-              console.log("Fetching Zakat transactions...");
-              await getZakatTransactions();
-          } catch (error) {
-              console.error("Error fetching Zakat transactions:", error);
-              setDebugInfo({
-                  error: String(error),
-                  errorType: error.name || 'Unknown Error'
-              });
-          }
-      };
-      
-      fetchZakatTransactions();
-  }, [getZakatTransactions]);
-
-  // Log whenever zakatTransactions changes
-  useEffect(() => {
-      console.log("Zakat transactions updated:", zakatTransactions);
-      if (zakatTransactions && zakatTransactions.length > 0) {
-          console.log("Sample transaction:", zakatTransactions[0]);
-      }
-      
-      // Set debug info with transaction data
-      if (zakatTransactions) {
-          setDebugInfo(prev => ({
-              ...prev,
-              transactionsCount: zakatTransactions.length,
-              hasWalletAddress: Boolean(walletAddress),
-              walletAddressLength: walletAddress?.length
-          }));
-      }
-  }, [zakatTransactions, walletAddress]);
 
   const convertEthToMYR = (ethAmount) => {
-      const myrAmount = Number(ethAmount) * ethToMYRRate;
-      return myrAmount.toFixed(6);
+    const myrAmount = Number(ethAmount) * ethToMYRRate;
+    return myrAmount.toFixed(2);
   };
-  
-  // Modified filtering logic to be more forgiving with case sensitivity
-  const filteredTransactions = zakatTransactions ? zakatTransactions.filter(tx => {
-      if (!walletAddress || !tx.addressFrom) return false;
-      
-      // Compare in lowercase to avoid case sensitivity issues
-      const fromAddressLower = tx.addressFrom.toLowerCase();
-      const walletAddressLower = walletAddress.toLowerCase();
-      
-      return fromAddressLower === walletAddressLower;
-  }) : [];
-  
-  // Log filtered transactions for debugging
-  useEffect(() => {
-      console.log("Filtered transactions:", filteredTransactions);
-  }, [filteredTransactions]);
 
+  // For demo, use context transactions
+  const transactions = zakatTransactions || [];
+  
   return (
-      <div className="bg-white rounded-xl p-6 mt-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h2 className="text-base font-bold">My Zakat Transactions</h2>
-                </div>
-                
-                <button 
-                  onClick={() => setShowInRM(!showInRM)}
-                  className="text-xs bg-gray-100 hover:bg-gray-200 transition-all rounded-full py-1 px-2 flex items-center text-gray-700"
-                >
-                  <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                {showInRM ? "Show in ETH" : "Show in RM"}
-              </button>
-          </div>
-
-          {isLoading ? (
-            <div className="py-4 text-center">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-500 border-t-transparent"></div>
-            </div>
-          ) : walletAddress && filteredTransactions && filteredTransactions.length > 0 ? (
-            <div className="space-y-3">
-              {filteredTransactions.map((tx, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="flex items-center mb-1">
-                        <span className={`inline-block w-2 h-2 rounded-full ${
-                            tx.keyword === 'food' ? 'bg-green-500' :
-                            tx.keyword === 'housing' ? 'bg-blue-500' :
-                            tx.keyword === 'utilities' ? 'bg-purple-500' : 'bg-yellow-500'
-                          } mr-2`}></span>
-                          <span className="font-medium text-sm">Zakat Payment</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <span className="mr-2">To: {tx.addressTo ? `${tx.addressTo.slice(0, 6)}...${tx.addressTo.slice(-4)}` : 'Unknown'}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">{tx.message || 'No message'}</div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="font-bold text-sm">
-                        {showInRM ? 
-                          `RM ${Number(tx.amount || 0).toFixed(6)}` : 
-                          `${Number(tx.amount || 0).toFixed(6)} ETH`
-                        }
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {showInRM ? 
-                          `(${tx.amount || 0} ETH)` : 
-                          `(~RM ${convertEthToMYR(tx.amount || 0)})`
-                        }
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">{tx.timestamp || 'Unknown date'}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-2 flex flex-col text-xs text-gray-500">
-                    <a 
-                      href={`https://saturn-explorer.swanchain.io/address/${tx.addressTo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center hover:text-green-600 transition-colors mb-1"
-                    >
-                      View Recipient on Saturn Explorer
-                      <svg className="w-3 h-3 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                    {tx.transactionHash && (
-                      <a 
-                        href={`https://saturn-explorer.swanchain.io/tx/${tx.transactionHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center hover:text-green-600 transition-colors"
-                      >
-                        View Transaction on Saturn Explorer
-                        <svg className="w-3 h-3 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : !walletAddress ? (
-            <div className="py-6 text-center text-gray-500 bg-gray-50 rounded-xl">
-              <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <rect x="3" y="5" width="18" height="14" rx="2" strokeWidth="2" />
-                <path strokeLinecap="round" strokeWidth="2" d="M3 10h18M7 15h2" />
-              </svg>
-              <p className="text-sm font-medium mb-1">No wallet connected</p>
-              <p className="text-xs">Please connect your wallet to view your transactions</p>
-            </div>
-          ) : (
-            <div className="py-6 text-center text-gray-500 bg-gray-50 rounded-xl">
-              <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p className="text-sm font-medium mb-1">No transactions found</p>
-              <p className="text-xs">Make your first Zakat payment to see your transactions</p>
-              
-              {/* Debug information - only show during development */}
-              {debugInfo && (
-                <div className="mt-4 p-3 bg-gray-100 rounded-lg text-left">
-                  <p className="text-xs font-medium mb-1">Debug Information:</p>
-                  <pre className="text-xs overflow-auto max-h-32">
-                    {JSON.stringify(debugInfo, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
+    <div className="bg-white rounded-xl p-6 mt-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <svg className="w-5 h-5 mr-2 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 className="text-base font-bold">My Zakat Transactions</h2>
       </div>
+        
+      <button 
+        onClick={() => setShowInRM(!showInRM)}
+        className="text-xs bg-gray-100 hover:bg-gray-200 transition-all rounded-full py-1 px-2 flex items-center text-gray-700"
+      >
+        <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        {showInRM ? "Show in ETH" : "Show in RM"}
+      </button>
+    </div>
+
+    {isLoading ? (
+      <div className="py-4 text-center">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-500 border-t-transparent"></div>
+      </div>
+    ) : currentAccount && transactions.length > 0 ? (
+      <div className="space-y-3">
+        {transactions.map((tx, index) => (
+          <div key={index} className="bg-gray-50 p-4 rounded-xl">
+            <div className="flex justify-between">
+              <div>
+                <div className="flex items-center mb-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                  <span className="font-medium text-sm">Zakat Payment</span>
+                </div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <span className="mr-2">To: {tx.addressTo ? `${tx.addressTo.slice(0, 6)}...${tx.addressTo.slice(-4)}` : 'Unknown'}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{tx.message || 'No message'}</div>
+              </div>
+              
+              <div className="text-right">
+                <div className="font-bold text-sm">
+                  {showInRM ? 
+                    `RM ${convertEthToMYR(tx.amount || 0)}` : 
+                    `${Number(tx.amount || 0).toFixed(6)} ETH`
+                  }
+                </div>
+                <div className="text-xs text-gray-500">
+                  {showInRM ? 
+                    `(${Number(tx.amount || 0).toFixed(6)} ETH)` : 
+                    `(~RM ${convertEthToMYR(tx.amount || 0)})`
+                  }
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{tx.timestamp || 'Unknown date'}</div>
+              </div>
+            </div>
+            
+            <div className="mt-2 text-xs flex items-center bg-blue-50 p-2 rounded">
+              <svg className="w-4 h-4 text-blue-600 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m-1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-blue-600">Demo Transaction</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : !currentAccount ? (
+      <div className="py-6 text-center text-gray-500 bg-gray-50 rounded-xl">
+        <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="3" y="5" width="18" height="14" rx="2" strokeWidth="2" />
+          <path strokeLinecap="round" strokeWidth="2" d="M3 10h18M7 15h2" />
+        </svg>
+        <p className="text-sm font-medium mb-1">No wallet connected</p>
+        <p className="text-xs">Connect your demo wallet to view transactions</p>
+      </div>
+    ) : (
+      <div className="py-6 text-center text-gray-500 bg-gray-50 rounded-xl">
+        <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <p className="text-sm font-medium mb-1">No transactions found</p>
+        <p className="text-xs">Make your first Zakat payment to see your transactions</p>
+      </div>
+    )}
+    </div>
   );
 };
 

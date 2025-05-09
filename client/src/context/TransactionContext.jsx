@@ -1,382 +1,244 @@
-import React, { useEffect, useState } from "react";
-import { ethers } from "ethers";
+import React, { useEffect, useState, createContext } from "react";
 
-import { contractABI, contractAddress } from "../utils/constants";
-
-export const TransactionContext = React.createContext();
-
-// Safe access to window.ethereum to avoid SSR issues
-const getEthereum = () => {
-  if (typeof window !== 'undefined') {
-    return window.ethereum;
-  }
-  return undefined;
-};
-
-// Move environment variables into the component
-const createEthereumContract = async () => {
-  try {
-    const ethereum = getEthereum();
-    if (!ethereum) return alert("Please install MetaMask!");
-
-    const provider = new ethers.BrowserProvider(ethereum);
-    const signer = await provider.getSigner();
-    const transactionsContract = new ethers.Contract(
-      contractAddress,
-      contractABI,
-      signer
-    );
-    console.log("Contract methods:", Object.keys(transactionsContract));
-    
-    if (!transactionsContract.getZakatTransactions) {
-      console.error("getZakatTransactions not found in contract ABI");
-    }
-
-    return transactionsContract;
-  } catch (error) {
-    console.error("Error creating contract:", error);
-    return null;
-  }
-};
+export const TransactionContext = createContext();
 
 export const TransactionsProvider = ({ children }) => {
-  // Access environment variables inside the component
-  const SENDER_ADDRESS = import.meta.env.VITE_SENDER_ADDRESS;
-  const RECEIVER_ADDRESS = import.meta.env.VITE_RECEIVER_ADDRESS;
-  const LOAN_AMOUNT = import.meta.env.VITE_LOAN_AMOUNT;
-  
+  const [currentAccount, setCurrentAccount] = useState("");
   const [formData, setformData] = useState({
     addressTo: "",
     amount: "",
     keyword: "",
     message: "",
   });
-  const [currentAccount, setCurrentAccount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [transactionCount, setTransactionCount] = useState(
-    typeof localStorage !== "undefined" ? localStorage.getItem("transactionCount") : null
+    localStorage.getItem("transactionCount") || 0
   );
   const [transactions, setTransactions] = useState([]);
   const [zakatTransactions, setZakatTransactions] = useState([]);
+
+  // Mock wallet address
+  const mockWalletAddress = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F";
+  
+  // Mock transaction data
+  const mockTransactions = [
+    {
+      id: "0x1234...abcd",
+      url: "https://sepolia.etherscan.io/tx/0x1234abcd",
+      message: "Zakat Payment",
+      timestamp: "2025-05-01T12:30:45Z",
+      addressFrom: mockWalletAddress,
+      addressTo: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F",
+      amount: "0.05 ETH",
+      keyword: "ZAKAT"
+    },
+    {
+      id: "0x5678...efgh",
+      url: "https://sepolia.etherscan.io/tx/0x5678efgh",
+      message: "Donation",
+      timestamp: "2025-04-15T16:22:30Z",
+      addressFrom: mockWalletAddress,
+      addressTo: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F",
+      amount: "0.02 ETH",
+      keyword: "DONATION"
+    }
+  ];
+
+  // Mock zakat transactions
+  const mockZakatTransactions = [
+    {
+      addressTo: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F",
+      addressFrom: mockWalletAddress,
+      timestamp: "2025-05-08 14:22:30",
+      message: "Zakat payment for categories: Income, Savings",
+      amount: "0.075",
+      keyword: "ZAKAT",
+      transactionHash: "0xabcd1234efgh5678ijkl9012mnop3456qrst7890uvwx"
+    },
+    {
+      addressTo: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F",
+      addressFrom: mockWalletAddress,
+      timestamp: "2025-04-20 09:15:45",
+      message: "Zakat payment for categories: Business",
+      amount: "0.12",
+      keyword: "ZAKAT",
+      transactionHash: "0x9876uvwx5432qrst1098mnop7654ijkl3210efgh"
+    }
+  ];
+
+  useEffect(() => {
+    // Initialize mock data
+    setTransactions(mockTransactions);
+    setZakatTransactions(mockZakatTransactions);
+    localStorage.setItem("transactionCount", 2);
+    setTransactionCount(2);
+  }, []);
 
   const handleChange = (e, name) => {
     setformData((prevState) => ({ ...prevState, [name]: e.target.value }));
   };
 
+  const connectWallet = async () => {
+    try {
+      setIsLoading(true);
+      // Simulate connection delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setCurrentAccount(mockWalletAddress);
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.log(error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const disconnectWallet = () => {
+    setCurrentAccount("");
+  };
+  
+  const checkIfWalletIsConnect = async () => {
+    try {
+      // For demo purposes, always return as not connected initially
+      setCurrentAccount("");
+      return "";
+    } catch (error) {
+      console.log(error);
+      return "";
+    }
+  };
+
   const getAllTransactions = async () => {
     try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask!");
-
-      const contract = await createEthereumContract();
-      if (!contract) return;
-
-      console.log("Fetching transactions from contract...");
-      if (typeof contract.getAllTransactions !== "function") {
-        console.error(
-          "getAllTransactions method doesn't exist on the contract",
-        );
-        return;
-      }
-
-      const availableTransactions = await contract.getAllTransactions();
-      console.log("Contract:", contract);
-      console.log("Raw transactions:", availableTransactions);
-
-      if (!availableTransactions || availableTransactions.length === 0) {
-        console.log("No transactions returned");
-        setTransactions([]);
-        return;
-      }
-      const txArray = Array.from(availableTransactions);
-
-      const structuredTransactions = txArray.map((transaction) => ({
-        addressTo: transaction.receiver,
-        addressFrom: transaction.sender,
-        timestamp: new Date(
-          Number(transaction.timestamp) * 1000,
-        ).toLocaleString(),
-        message: transaction.message,
-        keyword: transaction.keyword,
-        amount: ethers.formatEther(transaction.amount),
-      }));
-
-      console.log("Structured transactions:", structuredTransactions);
-      setTransactions(structuredTransactions);
+      return mockTransactions;
     } catch (error) {
-      console.error("Error getting transactions:", error?.message || error);
-      setTransactions([]);
+      console.log(error);
+      return [];
     }
   };
 
   const getZakatTransactions = async () => {
     try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask!");
-
-      const contract = await createEthereumContract();
-      if (!contract) return;
-      if (typeof contract.getZakatTransactions !== "function") {
-          console.error("getZakatTransactions method not found on contract");
-          console.log("Available methods:", Object.keys(contract));
-          
-          // Fallback to getAllTransactions if getZakatTransactions doesn't exist
-          const allTransactions = await contract.getAllTransactions();
-          if (allTransactions && allTransactions.length > 0) {
-              console.log("Using getAllTransactions as fallback");
-              const structuredTransactions = allTransactions.map((transaction) => ({
-                  addressTo: transaction.receiver,
-                  addressFrom: transaction.sender,
-                  timestamp: new Date(Number(transaction.timestamp) * 1000).toLocaleString(),
-                  message: transaction.message,
-                  amount: ethers.formatEther(transaction.amount),
-                  keyword: transaction.keyword,
-                  transactionHash: transaction.transactionHash || null
-              }));
-              
-              setZakatTransactions(structuredTransactions);
-              return;
-          }
-          
-          return;
-      }
-
-      console.log("Fetching Zakat transactions...");
-      
-      const availableTransactions = await contract.getZakatTransactions();
-      
-      if (!availableTransactions || availableTransactions.length === 0) {
-          console.log("No Zakat transactions found");
-          setZakatTransactions([]);
-          return;
-      }
-
-      console.log("Raw Zakat transactions:", availableTransactions);
-      
-      const structuredTransactions = availableTransactions.map((transaction) => ({
-          addressTo: transaction.receiver,
-          addressFrom: transaction.sender,
-          timestamp: new Date(Number(transaction.timestamp) * 1000).toLocaleString(),
-          message: transaction.message,
-          amount: ethers.formatEther(transaction.amount),
-          keyword: transaction.keyword,
-          transactionHash: transaction.transactionHash || null
-      }));
-
-      console.log("Structured Zakat transactions:", structuredTransactions);
-      setZakatTransactions(structuredTransactions);
-    } catch (error) {
-      console.error("Error getting Zakat transactions:", error);
-      // Log more details about the error
-      console.log("Error details:", {
-          message: error.message,
-          code: error.code,
-          data: error.data
-      });
-      setZakatTransactions([]);
-    }
-  };
-
-  const checkIfWalletIsConnect = async () => {
-    try {
-      const ethereum = getEthereum();
-      if (!ethereum) {
-        console.log("No MetaMask detected");
-        return;
-      }
-
-      const accounts = await ethereum.request({ method: "eth_accounts" });
-      console.log("Connected accounts:", accounts);
-
-      if (accounts.length) {
-        setCurrentAccount(accounts[0]);
-        console.log("Fetching transactions...");
-        await getAllTransactions();
-      }
-    } catch (error) {
-      console.error("Error checking wallet connection:", error);
-    }
-  };
-
-  const checkIfTransactionsExists = async () => {
-    try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask!");
-
-      const contract = await createEthereumContract();
-      if (!contract) return;
-
-      console.log("Available contract methods:", Object.keys(contract));
-
-      const count = await contract.getAllTransactionCount();
-
-      if (count) {
-        window.localStorage.setItem("transactionCount", count.toString());
-        setTransactionCount(count.toString());
-      }
-    } catch (error) {
-      console.log("Error checking transactions:", error?.message || error);
-    }
-  };
-
-  const connectWallet = async () => {
-    try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask.");
-
-      const accounts = await ethereum.request({
-        method: "eth_requestAccounts",
-      });
-
-      setCurrentAccount(accounts[0]);
-      window.location.reload();
+      return mockZakatTransactions;
     } catch (error) {
       console.log(error);
-
-      throw new Error("No ethereum object");
+      return [];
     }
   };
 
   const sendTransaction = async () => {
     try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask.");
-
-      const { addressTo, amount, keyword, message } = formData;
-
-      // Log the amount received from the form
-      console.log("Original amount value:", amount);
-      
-      const transactionsContract = await createEthereumContract();
-      if (!transactionsContract) return;
-      
-      // CRITICAL FIX: Instead of using parseEther which might interpret scientific notation or do conversions,
-      // we'll manually calculate the Wei value for exact precision
-      // For 1.5 ETH, we want exactly 1.5 * 10^18 Wei
-      
-      // Parse the amount with fixed decimal precision
-      const ethAmountDecimal = parseFloat(parseFloat(amount).toFixed(6));
-      console.log("ETH amount as decimal:", ethAmountDecimal);
-      
-      // Convert to BigInt wei value (1 ETH = 10^18 wei)
-      const weiValue = BigInt(Math.floor(ethAmountDecimal * 1e18));
-      console.log("Wei value for transaction:", weiValue.toString());
-      
-      await ethereum.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: currentAccount,
-            to: addressTo,
-            gas: "0x5208", // 21000 gas
-            value: "0x" + weiValue.toString(16), // Convert to hex string
-          },
-        ],
-      });
-      
-      // For the contract, use ethers.parseUnits for exact precision
-      const parsedAmount = ethers.parseUnits(ethAmountDecimal.toString(), 18);
-      console.log("Contract parsed amount:", parsedAmount.toString());
-      
-      const transactionHash = await transactionsContract.addToBlockchain(
-        addressTo,
-        parsedAmount,
-        message,
-        keyword
-      );
-
       setIsLoading(true);
-      console.log(`Loading - ${transactionHash.hash}`);
-      await transactionHash.wait();
-      console.log(`Success - ${transactionHash.hash}`);
+      
+      // Simulate transaction delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Create a mock transaction hash
+      const mockTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      
+      const { addressTo, amount, keyword, message } = formData;
+      
+      // Create a new transaction record
+      const newTransaction = {
+        id: mockTxHash,
+        url: `https://sepolia.etherscan.io/tx/${mockTxHash}`,
+        message,
+        timestamp: new Date().toLocaleString(),
+        addressFrom: currentAccount || mockWalletAddress,
+        addressTo,
+        amount: `${amount} ETH`,
+        keyword
+      };
+      
+      // Create a new zakat transaction if the keyword is ZAKAT
+      if (keyword === 'ZAKAT') {
+        const newZakatTx = {
+          addressTo,
+          addressFrom: currentAccount || mockWalletAddress,
+          timestamp: new Date().toLocaleString(),
+          message,
+          amount,
+          keyword,
+          transactionHash: mockTxHash
+        };
+        
+        setZakatTransactions([newZakatTx, ...zakatTransactions]);
+      }
+      
+      // Add the new transaction to the mock transactions
+      setTransactions([newTransaction, ...transactions]);
+      setTransactionCount(prevCount => Number(prevCount) + 1);
+      localStorage.setItem("transactionCount", Number(transactionCount) + 1);
+      
       setIsLoading(false);
-      const transactionsCount =
-        await transactionsContract.getAllTransactionCount();
-      setTransactionCount(transactionsCount.toString());
-      await getZakatTransactions();
+      
+      return {
+        success: true,
+        hash: mockTxHash
+      };
     } catch (error) {
-      console.error("Transaction error:", error);
+      console.log(error);
       setIsLoading(false);
-      throw error;
+      return {
+        success: false,
+        error: "Transaction failed"
+      };
     }
   };
 
   const fundLoan = async () => {
     try {
-      const ethereum = getEthereum();
-      if (!ethereum) return alert("Please install MetaMask.");
-
       setIsLoading(true);
-      const addressTo = RECEIVER_ADDRESS;
-      const addressFrom = currentAccount; 
-      const amount = LOAN_AMOUNT;
       
-      const transactionsContract = await createEthereumContract();
-      if (!transactionsContract) {
-        setIsLoading(false);
-        return;
-      }
+      // Simulate loan funding
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const parsedAmount = ethers.parseEther(amount);
-      await ethereum.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: addressFrom,
-            to: addressTo,
-            gas: "0x5208", 
-            value: parsedAmount.toString(),
-          },
-        ],
-      });
-      // This one is actually correct with 4 parameters, so we don't need to change it
-      const transactionHash = await transactionsContract.addToBlockchain(
-        addressTo,
-        parsedAmount,
-        "Loan Funding", 
-        "loan"
-      );
-
-      console.log(`Loading - ${transactionHash.hash}`);
-      await transactionHash.wait();
-      console.log(`Success - ${transactionHash.hash}`);
+      // Create a mock transaction hash
+      const mockTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      
+      // Create a new transaction record
+      const loanTransaction = {
+        id: mockTxHash,
+        url: `https://sepolia.etherscan.io/tx/${mockTxHash}`,
+        message: "Loan Funding",
+        timestamp: new Date().toLocaleString(),
+        addressFrom: currentAccount || mockWalletAddress,
+        addressTo: "0xB8c4D7cB00d84BB172E219CB6F271D90F96d2C4F",
+        amount: "0.5 ETH",
+        keyword: "loan"
+      };
+      
+      // Add the new transaction to the mock transactions
+      setTransactions([loanTransaction, ...transactions]);
+      setTransactionCount(prevCount => Number(prevCount) + 1);
+      localStorage.setItem("transactionCount", Number(transactionCount) + 1);
       
       setIsLoading(false);
-      const transactionsCount = await transactionsContract.getAllTransactionCount();
-      setTransactionCount(transactionsCount.toString());
       
-      return transactionHash;
+      return {
+        success: true,
+        hash: mockTxHash
+      };
     } catch (error) {
-      console.error("Loan funding error:", error);
+      console.log(error);
       setIsLoading(false);
-      throw error;
+      return {
+        success: false,
+        error: "Loan funding failed"
+      };
     }
   };
 
   useEffect(() => {
-    const init = async () => {
-      await checkIfWalletIsConnect();
-      await checkIfTransactionsExists();
-    };
-    init();
+    checkIfWalletIsConnect();
   }, []);
-
-  useEffect(() => {
-    if (currentAccount) {
-      getAllTransactions();
-      getZakatTransactions();
-    }
-  }, [currentAccount, transactionCount]);
-
-  useEffect(() => {
-    console.log("Transactions updated:", transactions);
-  }, [transactions]);
 
   return (
     <TransactionContext.Provider
       value={{
         transactionCount,
         connectWallet,
+        disconnectWallet,
         transactions,
         currentAccount,
         isLoading,
