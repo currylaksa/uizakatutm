@@ -1,18 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react'; // Removed React import
+import PropTypes from 'prop-types'; // Added PropTypes import
 import { submitApplication } from '../../services/applicationService';
 
 const ApplicationForm = ({ onSubmit }) => {
   // Store form data in state but don't use it for input values directly
   const [formData, setFormData] = useState({
-    fullName: '',
-    icNumber: '',
-    address: '',
-    phone: '',
-    email: '',
-    monthlyIncome: '',
-    dependents: '',
-    reason: '',
-    asnafCategory: '', // Added asnaf category field
+    fullName: 'Ahmad Bin Abu',
+    icNumber: '900101101234',
+    address: 'No. 1, Jalan Universiti, Skudai, Johor',
+    phone: '0123456789',
+    email: 'ahmad.abu@example.com',
+    monthlyIncome: '1500',
+    dependents: '3',
+    reason: 'Kehilangan pekerjaan dan memerlukan bantuan sara hidup.',
+    asnafCategory: 'miskin', // Added asnaf category field
   });
   
   // Use refs for direct DOM access
@@ -48,14 +49,14 @@ const ApplicationForm = ({ onSubmit }) => {
   // to set initial ref values from state (if any)
   useEffect(() => {
     if (fullNameRef.current) fullNameRef.current.value = formData.fullName;
-    if (icNumberRef.current) icNumberRef.current.value = formData.icNumber; // Fix this line
+    if (icNumberRef.current) icNumberRef.current.value = formData.icNumber;
     if (addressRef.current) addressRef.current.value = formData.address;
     if (phoneRef.current) phoneRef.current.value = formData.phone;
     if (emailRef.current) emailRef.current.value = formData.email;
     if (monthlyIncomeRef.current) monthlyIncomeRef.current.value = formData.monthlyIncome;
     if (dependentsRef.current) dependentsRef.current.value = formData.dependents;
     if (reasonRef.current) reasonRef.current.value = formData.reason;
-    if (asnafCategoryRef.current) asnafCategoryRef.current.value = formData.asnafCategory; // Added this line
+    if (asnafCategoryRef.current) asnafCategoryRef.current.value = formData.asnafCategory;
   }, []);
   
   // This function synchronizes the refs with our state before any render
@@ -143,8 +144,8 @@ const ApplicationForm = ({ onSubmit }) => {
     if (monthlyIncomeRef.current) monthlyIncomeRef.current.value = formData.monthlyIncome;
     if (dependentsRef.current) dependentsRef.current.value = formData.dependents;
     if (reasonRef.current) reasonRef.current.value = formData.reason;
-    if (asnafCategoryRef.current) asnafCategoryRef.current.value = formData.asnafCategory; // Added this line
-  }, [formData]);
+    if (asnafCategoryRef.current) asnafCategoryRef.current.value = formData.asnafCategory;
+  }, [formData.fullName, formData.icNumber, formData.address, formData.phone, formData.email, formData.monthlyIncome, formData.dependents, formData.reason, formData.asnafCategory]); // Added missing dependencies
 
   const validateForm = () => {
     // Sync form data before validation
@@ -188,7 +189,7 @@ const ApplicationForm = ({ onSubmit }) => {
     
     if (!currentFormData.asnafCategory) newErrors.asnafCategory = 'Please select an Asnaf Category.'; // Added this line
     
-    if (!document) newErrors.document = 'Proof of Income document is required.';
+    // if (!document) newErrors.document = 'Proof of Income document is required.'; // Made document optional
     
     setErrors(newErrors);
     
@@ -374,6 +375,21 @@ const ApplicationForm = ({ onSubmit }) => {
     </div>
   );
 
+  // Added PropTypes validation for FormField
+  FormField.propTypes = {
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    type: PropTypes.string,
+    error: PropTypes.string,
+    required: PropTypes.bool,
+    inputRef: PropTypes.oneOfType([
+      PropTypes.func,
+      PropTypes.shape({ current: PropTypes.instanceOf(Element) })
+    ]),
+    children: PropTypes.node,
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">Step 1: Application Form</h2>
@@ -508,7 +524,7 @@ const ApplicationForm = ({ onSubmit }) => {
 
         <div className="mb-5">
           <label htmlFor="document" className="block text-sm font-medium text-gray-700 mb-1">
-            Upload Payslip or Proof of Income <span className="text-red-500">*</span>
+            Upload Payslip or Proof of Income <span className="text-gray-500">(Optional)</span> {/* Changed to Optional */}
           </label>
           <div className={`w-full border ${errors.document ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm p-2`}>
             <input
@@ -551,6 +567,11 @@ const ApplicationForm = ({ onSubmit }) => {
       </form>
     </div>
   );
+};
+
+// Added PropTypes validation for ApplicationForm
+ApplicationForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
 };
 
 export default ApplicationForm;

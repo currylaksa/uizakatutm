@@ -157,7 +157,7 @@ const ZakatPaymentPage = () => {
               </svg>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-green-800">ZakatGo Payment System</h1>
+          <h1 className="text-3xl font-bold text-green-800">Zakat Payment</h1>
           <p className="mt-2 text-gray-600">Simplifying your Zakat payment journey</p>
         </div>
 

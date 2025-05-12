@@ -34,6 +34,7 @@ import {ZakatAssistPage} from "./pages/zakatAssist"
 import ApprovalReportPage from "./pages/zakatAssist/ApprovalReportPage"; // Import the new ApprovalReportPage
 import { ThemeProvider } from "./context/ThemeContext";
 import { LanguageProvider } from './contexts/LanguageContext';
+import ScrollToTop from './components/ScrollToTop';
 
 // Component to conditionally render Navbar based on route
 const AppContent = () => {
@@ -120,6 +121,7 @@ const App = () => {
     <LanguageProvider>
       <ThemeProvider>
         <Router>
+          <ScrollToTop />
           <AppContent />
         </Router>
       </ThemeProvider>

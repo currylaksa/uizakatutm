@@ -42,6 +42,7 @@ const ZakatAssistPage = () => {
   // Update URL hash when step changes
   useEffect(() => {
     window.location.hash = `#step${currentStep}`;
+    window.scrollTo(0, 0); // Add this line to scroll to top
   }, [currentStep]);
 
   const handleFormSubmit = (formData) => {
@@ -93,7 +94,7 @@ const ZakatAssistPage = () => {
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
   </svg>
 </div>
-          <h1 className="text-4xl font-bold text-green-800 mb-3">Zakat Assistance System</h1>
+          <h1 className="text-4xl font-bold text-green-800 mb-3">Zakat Assistance</h1>
           <p className="text-gray-600 text-lg">Apply for Zakat assistance. If approved, receive a QR code to get essential goods at partnered stores.</p>
         </div>
 
@@ -289,7 +290,7 @@ const ZakatAssistPage = () => {
             </a>
             <a href="#" className="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 text-sm font-medium rounded-md hover:bg-green-200 transition duration-150 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               Live Chat
             </a>

@@ -132,8 +132,8 @@ const zakatGoNavItems = [
     title: "Zakat Services",
     hasSubmenu: true,
     submenuItems: [
-      { title: "Zakat Payment System", path: "/zakat-payment" },
-      { title: "Zakat Assistance System", path: "/zakat-assist" }
+      { title: "Zakat Payment", path: "/zakat-payment" },
+      { title: "Zakat Assistance", path: "/zakat-assist" }
     ]
   },
   { title: "Donation Campaigns", path: "/campaigns" },
