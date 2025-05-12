@@ -1,5 +1,6 @@
 import React from 'react';
 import mapImage from '../assets/Map.png';
+import sampleQRImage from '../assets/sampleQR.png'; // Import the QR sample image
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Reusable Button component with updated styling
@@ -415,9 +416,7 @@ const Homepage = () => {
                 <p className="text-xs text-gray-600 mb-3">Receive help with dignity at partner stores</p>
                 <div className="bg-white p-3 rounded-lg flex items-center justify-center">
                   <div className="border-2 border-gray-300 p-1 rounded">
-                    <div className="w-24 h-24 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                      QR Sample
-                    </div>
+                    <img src={sampleQRImage} alt="Sample QR Code" className="w-50 h-48 object-contain" /> {/* Increased size from w-24 h-24 to w-48 h-48 */}
                   </div>
                 </div>
               </div>
